@@ -2,6 +2,9 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import pool from "./config/db.js";
+import productRoutes from "./routes/productroute.js";
+import authRoutes from "./routes/authroute.js";
+import { verifyToken } from "./middleware/authmiddleware.js";
 
 dotenv.config();
 
@@ -21,44 +24,11 @@ app.get("/api/db-test", async (req, res) => {
   }
 });
 
-// Add Product
-app.post("/api/products", async (req, res) => {
-  const {
-    product_name,
-    brand_id,
-    category_id,
-    color_id,
-    price,
-    stock_quantity,
-    emmi_number,
-  } = req.body;
+// Authentication Routes - These will handle the POST request for login
+app.use("/api/auth", authRoutes); // Handles POST for /login
 
-  // Validate required fields
-  if (!product_name || !brand_id || !category_id || !color_id || !price || !stock_quantity) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
-
-  try {
-    const query = `
-      INSERT INTO PRODUCT (product_name, brand_id, category_id, color_id, price, stock_quantity, emmi_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await pool.query(query, [
-      product_name,
-      brand_id,
-      category_id,
-      color_id,
-      price,
-      stock_quantity,
-      emmi_number,
-    ]);
-
-    res.status(201).json({ message: "Product added successfully!", productId: result.insertId });
-  } catch (error) {
-    console.error("Error adding product:", error);
-    res.status(500).json({ error: "Failed to add product" });
-  }
-});
+// Product Routes - Protected by JWT Token
+app.use("/api/products", verifyToken, productRoutes); // Handles POST for /products
 
 // Default Route
 app.get("/", (req, res) => {

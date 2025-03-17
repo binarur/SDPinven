@@ -4,6 +4,7 @@ import cors from "cors";
 import pool from "./config/db.js";
 import productRoutes from "./routes/productroute.js";
 import authRoutes from "./routes/authroute.js";
+import usermanageRoutes from "./routes/usermanageRoutes.js"; 
 import { verifyToken } from "./middleware/authmiddleware.js";
 
 dotenv.config();
@@ -29,6 +30,9 @@ app.use("/api/auth", authRoutes); // Handles POST for /login
 
 // Product Routes - Protected by JWT Token
 app.use("/api/products", verifyToken, productRoutes); // Handles POST for /products
+
+// User Management Routes - Admin-only access
+app.use("/api/usermanage",  usermanageRoutes);  // Use the new usermanage routes, admin check is done in middleware
 
 // Default Route
 app.get("/", (req, res) => {

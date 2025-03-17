@@ -1,30 +1,27 @@
-import jwt from "jsonwebtoken";
-import pool from "../config/db.js";
-import dotenv from "dotenv";
+import jwt from 'jsonwebtoken';
 
-dotenv.config();
+export const verifyToken = (req, res, next) => {
 
-export const verifyToken = async (req, res, next) => {
+  console.log("Received Token:", req.header("Authorization"));
+  
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+  
+
+  if (!token) {
+    return res.status(403).json({ error: "Access denied. No token provided." });
+  }
+
   try {
-    const token = req.header("Authorization")?.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "LAKSHITHA");
+    req.user = decoded; // Attach user info to the request object
 
-    if (!token) {
-      return res.status(403).json({ error: "Access denied. No token provided." });
+    // Check if the user is an admin
+    if (req.user.role !== "Admin") {
+      return res.status(403).json({ error: "Access denied. Admins only." });
     }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-
-    // Fetch user from DB to verify role exists
-    const [users] = await pool.query("SELECT * FROM USERS WHERE id = ?", [decoded.user_id]);
-    if (users.length === 0) {
-      return res.status(403).json({ error: "User not found." });
-    }
-
-    req.user.role = users[0].user_role;
 
     next();
-  } catch (error) {
+  } catch (err) {
     return res.status(401).json({ error: "Invalid or expired token." });
   }
 };

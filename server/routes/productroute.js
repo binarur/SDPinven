@@ -8,6 +8,7 @@ import {
     addBrand,
     addColor 
   } from "../controllers/productcontroller.js"; 
+import upload from "../config/upload.js";
 
 const router = express.Router();
 
@@ -24,6 +25,12 @@ router.get("/colors", getColors);
 router.post("/colors", addColor);
 
 // Product routes
-router.post("/addproduct", addProduct);
+//router.post("/addproduct", addProduct);
+
+router.post("/addproduct", upload.fields([
+  { name: 'main_image', maxCount: 1 },
+  { name: 'additional_images', maxCount: 4 }
+]), addProduct);
+
 
 export default router;

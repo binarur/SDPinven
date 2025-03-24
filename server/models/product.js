@@ -40,6 +40,14 @@ const Product = sequelize.define('Product', {
     type: DataTypes.STRING(1000), 
     allowNull: true, 
   },
+  main_image: {  // Main Product Image
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  additional_images: {  // Other 4 Images
+    type: DataTypes.JSON,  // Store as an array of image URLs
+    allowNull: true,
+  }
 });
 
 export default Product; 

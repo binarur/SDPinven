@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import upload from "../config/upload.js";
 
 // Fetch all categories
 export const getCategories = async (req, res) => {
@@ -122,70 +123,71 @@ export const addColor = async (req, res) => {
 
 // Add Product
 export const addProduct = async (req, res) => {
-  const { category, brand, model, color, title, quantity, costPerItem, description, emiNumber } = req.body;
-
-  // Validate required fields
-  if (!category || !brand || !title || !quantity || !costPerItem) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
-
-  try {
-    // Check if category exists, if not, create it
-    let [categoryResult] = await pool.query("SELECT * FROM CATEGORY WHERE category_name = ?", [category]);
-    let categoryId;
-    if (categoryResult.length === 0) {
-      const [newCategory] = await pool.query("INSERT INTO CATEGORY (category_name) VALUES (?)", [category]);
-      categoryId = newCategory.insertId;
-    } else {
-      categoryId = categoryResult[0].category_id;
+  upload.fields([
+    { name: 'main_image', maxCount: 1 }, 
+    { name: 'additional_images', maxCount: 4 }
+  ])(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
     }
 
-    // Check if brand exists, if not, create it
-    let [brandResult] = await pool.query("SELECT * FROM BRAND WHERE brand_name = ?", [brand]);
-    let brandId;
-    if (brandResult.length === 0) {
-      const [newBrand] = await pool.query("INSERT INTO BRAND (brand_name) VALUES (?)", [brand]);
-      brandId = newBrand.insertId;
-    } else {
-      brandId = brandResult[0].brand_id;
+    const { category, brand, model, color, title, quantity, costPerItem, description, emiNumber } = req.body;
+    const mainImage = req.files['main_image'] ? req.files['main_image'][0].path : null;
+    const additionalImages = req.files['additional_images'] ? req.files['additional_images'].map(file => file.path) : [];
+
+    if (!category || !brand || !title || !quantity || !costPerItem) {
+      return res.status(400).json({ error: "All fields are required" });
     }
 
-    // Check if color exists, if not, create it
-    let [colorResult] = await pool.query("SELECT * FROM COLOUR WHERE color_name = ?", [color]);
-    let colorId;
-    if (colorResult.length === 0) {
-      const [newColor] = await pool.query("INSERT INTO COLOUR (color_name) VALUES (?)", [color]);
-      colorId = newColor.insertId;
-    } else {
-      colorId = colorResult[0].color_id;
+    try {
+      let [categoryResult] = await pool.query("SELECT * FROM CATEGORY WHERE category_name = ?", [category]);
+      let categoryId = categoryResult.length === 0 
+        ? (await pool.query("INSERT INTO CATEGORY (category_name) VALUES (?)", [category]))[0].insertId 
+        : categoryResult[0].category_id;
+
+      let [brandResult] = await pool.query("SELECT * FROM BRAND WHERE brand_name = ?", [brand]);
+      let brandId = brandResult.length === 0 
+        ? (await pool.query("INSERT INTO BRAND (brand_name) VALUES (?)", [brand]))[0].insertId 
+        : brandResult[0].brand_id;
+
+      let [colorResult] = await pool.query("SELECT * FROM COLOUR WHERE color_name = ?", [color]);
+      let colorId = colorResult.length === 0 
+        ? (await pool.query("INSERT INTO COLOUR (color_name) VALUES (?)", [color]))[0].insertId 
+        : colorResult[0].color_id;
+
+      const query = `
+        INSERT INTO PRODUCT (product_name, brand_id, category_id, color_id, price, stock_quantity, emmi_number, description, main_image, additional_images)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const [result] = await pool.query(query, [
+        title,
+        brandId,
+        categoryId,
+        colorId,
+        costPerItem,
+        quantity,
+        emiNumber,
+        description,
+        mainImage,
+        JSON.stringify(additionalImages) // Store as JSON in DB
+      ]);
+
+      res.status(201).json({ 
+        message: "Product added successfully!", 
+        productDetails: {
+          productId: result.insertId,
+          category,
+          brand,
+          color,
+          mainImage,
+          additionalImages
+        } 
+      });
+
+    } catch (error) {
+      console.error("Error adding product:", error);
+      res.status(500).json({ error: "Failed to add product" });
     }
-
-    // Insert the product
-    const query = `
-      INSERT INTO PRODUCT (product_name, brand_id, category_id, color_id, price, stock_quantity, emmi_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await pool.query(query, [
-      title,
-      brandId,
-      categoryId,
-      colorId,
-      costPerItem,
-      quantity,
-      emiNumber,
-    ]);
-
-    res.status(201).json({ 
-      message: "Product added successfully!", 
-      productDetails: {
-        productId: result.insertId,
-        category: category,
-        brand: brand,
-        color: color
-      } 
-    });
-  } catch (error) {
-    console.error("Error adding product:", error);
-    res.status(500).json({ error: "Failed to add product" });
-  }
+  });
 };
